@@ -153,5 +153,3 @@ New-CWMCompanyConfiguration -company $company -name $LMname -type $type -ipAddre
 }
 }
 
-
-get-process
