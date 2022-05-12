@@ -1,10 +1,11 @@
 ###############################################################################
 #                            LOGICMONITOR                                     #
 ###############################################################################
-
-$AccessKey = "********************************"  
-$AccessId = "*****************" 
-$Company = 'Company Name' 
+#Pull all LM devices
+#LM API information
+$AccessKey = ""  
+$AccessId = "" 
+$Company = '' 
 #Create list to keep devices 
 $allDevices = @() 
 #Loop through getting all devices 
@@ -45,7 +46,8 @@ $headers.Add("x-version",3)
         Write-Output "All LM Devices pulled" 
         $done = 1}  
 }
-
+#take only devices that are device type 0
+#These are normal non-cloud devices in LM
 $devicetype0 = @()
 foreach ($device in $allDevices){
     if($device.devicetype -eq 0){
@@ -57,15 +59,18 @@ foreach ($device in $allDevices){
 #                            Connectwise                                      #
 ###############################################################################
 
-$PrivateKey = "*************" 
-$PublicKey  = "*************"
-$Company    = "Company Name"
-$ClientID   = "***********************"
-#$URI = 'https://na.myconnectwise.net/v4_6_release/apis/3.0/company/configurations'
+#API information from ConnectWise
+$PrivateKey = "" 
+$PublicKey  = ""
+$Company    = ""
+$ClientID   = ""
 
-Connect-CWM -ClientID $ClientID -Company $Company -PrivateKey $PrivateKey -PubKey $PublicKey -Server https://na.myconnectwise.net
+Connect-CWM -ClientID $ClientID -Company $Company -PrivateKey $PrivateKey -PubKey $PublicKey -Server https://sandbox-na.myconnectwise.net
 
 $CWAlldevicesCollection = Get-CWMCompanyConfiguration -all
+
+# Get-CWMCompanyConfiguration creates groups of 999 devices each
+# This moves them all into a single array rather than being grouped seperately
 $CWDevices = @()
 $counter = $CWAlldevicesCollection.count
 while ($counter -gt -1){
@@ -78,54 +83,50 @@ while ($counter -gt -1){
 #                           Device Matching                                   #
 ###############################################################################
 
+#sort so matching is faster
 $devicetype0 = $devicetype0 |sort -Descending
 $CWDevices = $CWDevices |sort -Descending
 
 #match devices by name
+# I should look into removing devices from their arrays after something is done with them
+# This could hopefully speed up the script at least a little bit, Current run time is about 3 hours
 "Comparing Devices" 
 foreach ($LMDevice in $devicetype0){
-"device"
+"Next Device"
     $ismatch = $null
         foreach ($CWDevice in $CWDevices){
 
-        
+        #Get CompanyID
         $CompanyID = 19298
         $LMdevice.inheritedProperties.ForEach({if($_.name -eq 'connectwisev2.companyid'){$LMCompanyID = $_.value}})
-        #$LMDevice|select -ExpandProperty inheritedproperties |ForEach-Object {
-        #if($_.name -eq 'connectwisev2.companyid') {$CompanyID = $_.value}
-        #}
-
+        #Set SysOS to a default so that devices without it don't get set to the previous device value
         $SysOS = 'None Found'
+        #Set SysOS to the devices OS information in LM
         $LMDevice.systemProperties.ForEach({if($_.name -eq 'system.sysinfo'){$SysOS = $_.value}})
-        #$LMDevice|select -ExpandProperty systemproperties |ForEach-Object {
-        #if($_.name -eq 'system.sysinfo') {$SysOS = $_.value}
-        #}
+        
+        #Connectwise doesn't accept letters in the IP address field
+        # Any devices that are being monitored by Hostname will have thier IP changed to 127.0.0.1
         if ($LMDevice.name -match "[a-z]"){$LMDevice.name = '127.0.0.1'}
-                $LMname = $LMDevice.displayName
-                $LMIP = $lmdevice.name
-
-
+        
+        #Set devicename and IP
+        $LMname = $LMDevice.displayName
         $IPaddress = "$LMIP"
-        $ostype = "$SysOS"
-        #$properties = $LMDevice.systemProperties + $LMDevice.autoProperties
-        #$notes = $properties |Out-String
 
 
+            #if the name and CompanyID match in both arrays then the information will be synced
+            #Otherwise if the device has no matches then it will be added
              if($lmdevice.displayname -eq $CWDevice.name -and $LMCompanyID -eq $CWDevice.company.id){
 
                 $ismatch = 'true'
                 $devicename = $lmdevice.displayname 
                 $cwdevicename = $CWDevice.name 
-                Write-Output "$devicename matches $cwdevicename"
+                Write-Output "Syncing " + $CWDevice.name
                 ##########################################################
                 #                   update device                        #
                 ##########################################################
-                #had comparison if statements here to only update changes but it made the script take forever
                 
                 #IPaddress
                     Update-CWMCompanyConfiguration -id $CWDevice.id -Operation replace -Path ipAddress -Value $LMDevice.name
-                #Notes
-                    #Update-CWMCompanyConfiguration -id $CWDevice.id -Operation replace -Path notes -Value $Notes
                 #OS
                     Update-CWMCompanyConfiguration -id $CWDevice.id -Operation replace -Path osInfo -Value $SysOS
                     
@@ -141,14 +142,16 @@ $devicename = $LMDevice.displayname
 "No Match for $devicename......... adding device"
 
 ##################################################################
-#Add Device
-
+#                         Add Device                             #
+##################################################################
 $LMDevice.inheritedProperties.ForEach({if($_.name -eq 'cw_Type'){$DeviceType = $_.value}})
         $company = @{"id"="$CompanyID"}
-        $name = "$LMname"
         $type = @{"name"="$DeviceType"}
 
-New-CWMCompanyConfiguration -company $company -name $name -type $type -ipAddress $IPaddress -osinfo $ostype -notes $notes
+New-CWMCompanyConfiguration -company $company -name $LMname -type $type -ipAddress $IPaddress -osinfo $SysOS -notes $notes
 
 }
 }
+
+
+get-process
