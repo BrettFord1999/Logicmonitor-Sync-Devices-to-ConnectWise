@@ -1,6 +1,9 @@
 ###############################################################################
 #                            LOGICMONITOR                                     #
 ###############################################################################
+Install-Module 'ConnectWiseManageAPI' -force
+import-module 'ConnectWiseManageAPI'
+
 #Pull all LM devices
 #LM API information
 $AccessKey = ""  
@@ -109,7 +112,8 @@ foreach ($LMDevice in $devicetype0){
         if ($LMDevice.name -match "[a-z]"){$LMDevice.name = '127.0.0.1'}
         
         #Set devicename and IP
-        $LMname = $LMDevice.displayName
+       $LMname = $LMDevice.displayName
+        $LMIP = $LMdevice.name
         $IPaddress = "$LMIP"
 
 
@@ -145,7 +149,7 @@ $devicename = $LMDevice.displayname
 #                         Add Device                             #
 ##################################################################
 $LMDevice.inheritedProperties.ForEach({if($_.name -eq 'cw_Type'){$DeviceType = $_.value}})
-        $company = @{"id"="$CompanyID"}
+        $company = @{"id"="$LMCompanyID"}
         $type = @{"name"="$DeviceType"}
 
 New-CWMCompanyConfiguration -company $company -name $LMname -type $type -ipAddress $IPaddress -osinfo $SysOS -notes $notes
