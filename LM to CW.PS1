@@ -6,9 +6,9 @@ import-module 'ConnectWiseManageAPI'
 
 #Pull all LM devices
 #LM API information
-$AccessKey = ""  
-$AccessId = "" 
-$Company = '' 
+$AccessKey = "***********************************"  
+$AccessId = "***********" 
+$Company = '*******' 
 #Create list to keep devices 
 $allDevices = @() 
 #Loop through getting all devices 
@@ -63,12 +63,12 @@ foreach ($device in $allDevices){
 ###############################################################################
 
 #API information from ConnectWise
-$PrivateKey = "" 
-$PublicKey  = ""
-$Company    = ""
-$ClientID   = ""
+$PrivateKey = "****************" 
+$PublicKey  = "****************"
+$Company    = "******"
+$ClientID   = "************************"
 
-Connect-CWM -ClientID $ClientID -Company $Company -PrivateKey $PrivateKey -PubKey $PublicKey -Server https://sandbox-na.myconnectwise.net
+Connect-CWM -ClientID $ClientID -Company $Company -PrivateKey $PrivateKey -PubKey $PublicKey -Server 'http://na.myconnectwise.net/v4_6_development/apis/3.0'
 
 $CWAlldevicesCollection = Get-CWMCompanyConfiguration -all
 
@@ -92,7 +92,7 @@ $CWDevices = $CWDevices |sort -Descending
 
 #match devices by name
 # I should look into removing devices from their arrays after something is done with them
-# This could hopefully speed up the script at least a little bit, Current run time is about 3 hours
+# This could hopefully speed up the script at least a little bit, Current run time is about 3 hours for 2,200 LM devices and 22,000 CW configs
 "Comparing Devices" 
 foreach ($LMDevice in $devicetype0){
 "Next Device"
@@ -100,7 +100,7 @@ foreach ($LMDevice in $devicetype0){
         foreach ($CWDevice in $CWDevices){
 
         #Get CompanyID
-        $CompanyID = 19298
+        $LMCompanyID = 19298
         $LMdevice.inheritedProperties.ForEach({if($_.name -eq 'connectwisev2.companyid'){$LMCompanyID = $_.value}})
         #Set SysOS to a default so that devices without it don't get set to the previous device value
         $SysOS = 'None Found'
@@ -112,7 +112,7 @@ foreach ($LMDevice in $devicetype0){
         if ($LMDevice.name -match "[a-z]"){$LMDevice.name = '127.0.0.1'}
         
         #Set devicename and IP
-       $LMname = $LMDevice.displayName
+        $LMname = $LMDevice.displayName
         $LMIP = $LMdevice.name
         $IPaddress = "$LMIP"
 
@@ -156,4 +156,3 @@ New-CWMCompanyConfiguration -company $company -name $LMname -type $type -ipAddre
 
 }
 }
-
